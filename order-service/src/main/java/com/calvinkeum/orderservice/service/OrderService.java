@@ -1,16 +1,16 @@
 package com.calvinkeum.orderservice.service;
 
-import com.calvinkeum.orderservice.dto.OrderLineItemRequest;
-import com.calvinkeum.orderservice.dto.OrderLineItemResponse;
-import com.calvinkeum.orderservice.dto.OrderRequest;
-import com.calvinkeum.orderservice.dto.OrderResponse;
+import com.calvinkeum.orderservice.config.WebClientConfig;
+import com.calvinkeum.orderservice.dto.*;
 import com.calvinkeum.orderservice.model.Order;
 import com.calvinkeum.orderservice.model.OrderLineItem;
 import com.calvinkeum.orderservice.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.reactive.function.client.WebClient;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.UUID;
@@ -21,6 +21,7 @@ import java.util.UUID;
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final WebClient.Builder webClientBuilder;
     public void placeOrder(OrderRequest orderRequst) {
         Order order = new Order();
         order.setOrderNumber(UUID.randomUUID().toString());
@@ -30,6 +31,25 @@ public class OrderService {
                 .map(orderLineItemRequest -> mapToDTO(orderLineItemRequest)).toList();
 
         order.setOrderLineItemList(orderLineItems);
+
+        List<String> skus = order.getOrderLineItemList().stream().map(OrderLineItem::getSku).toList();
+
+        // Call inventory service and place order if order is in stock
+        //TODO: This does not take into account if the order quantity exceeds the inventory quantity
+        InventoryResponse[] inventoryResponses = webClientBuilder.build().get()
+                .uri("http://inventory-service/api/inventory",
+                        uriBuilder -> uriBuilder.queryParam("sku", skus).build())
+                .retrieve()
+                .bodyToMono(InventoryResponse[].class)
+                .block();
+
+        boolean allProductsInStock = Arrays.stream(inventoryResponses)
+                .allMatch(InventoryResponse::isInStock);
+
+        if (!allProductsInStock) {
+            System.out.println("should error");
+            //throw new IllegalAccessException("Product is not in stock");
+        }
 
         orderRepository.save(order);
     }
