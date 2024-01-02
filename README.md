@@ -9,6 +9,7 @@ Small project utilizing the following techonogies:
 
     - Client-side service discovery allows services to find and communicate with each other without hard-coding the hostname and port.
     - Multiple instances of Inventory Service.
+- Keycloak for Identity And Access Management
 
 
 ## Modules

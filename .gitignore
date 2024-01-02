@@ -5,6 +5,7 @@ target/
 !**/src/test/**/target/
 
 .vscode/
+.idea/
 .idea
 *.iws
 *.iml
