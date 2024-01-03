@@ -2,6 +2,7 @@ package com.calvinkeum.orderservice.service;
 
 import com.calvinkeum.orderservice.config.WebClientConfig;
 import com.calvinkeum.orderservice.dto.*;
+import com.calvinkeum.orderservice.event.OrderPlacedEvent;
 import com.calvinkeum.orderservice.model.Order;
 import com.calvinkeum.orderservice.model.OrderLineItem;
 import com.calvinkeum.orderservice.repository.OrderRepository;
@@ -9,6 +10,7 @@ import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -27,6 +29,7 @@ public class OrderService {
     private final WebClient.Builder webClientBuilder;
     private final ObservationRegistry observationRegistry;
     private final ApplicationEventPublisher applicationEventPublisher;
+    private final KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate;
 
     public String placeOrder(OrderRequest orderRequst) {
         Order order = new Order();
@@ -83,6 +86,7 @@ public class OrderService {
                 orderRepository.save(order);
                 // publish Order Placed Event
                 //applicationEventPublisher.publishEvent(new OrderPlacedEvent(this, order.getOrderNumber()));
+                kafkaTemplate.send("notificationTopic", new OrderPlacedEvent(order.getOrderNumber()));
                 return "Order Placed";
             } else {
                 throw new IllegalArgumentException("Product is not in stock, please try again later");

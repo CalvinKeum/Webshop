@@ -12,12 +12,15 @@ Small project utilizing the following techonogies:
 - Keycloak for Identity And Access Management
 - Resilience4j: Circuit  Breaker, Timelimiter, Retry  
 - Zipkin for distributed tracing system
+- Apache Kafka
+  - Asynchronous sending Orders to Notification Service
 
 ## Modules
 
 - Product Service
 - Order Service
 - Inventory Service
+- Notification Service
 - Discovery Server
 
     - Utilizes Netflix Eureka. 
