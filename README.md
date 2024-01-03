@@ -11,6 +11,7 @@ Small project utilizing the following techonogies:
     - Multiple instances of Inventory Service.
 - Keycloak for Identity And Access Management
 - Resilience4j: Circuit  Breaker, Timelimiter, Retry  
+- Zipkin for distributed tracing system
 
 ## Modules
 
