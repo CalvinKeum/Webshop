@@ -22,7 +22,7 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final WebClient.Builder webClientBuilder;
-    public void placeOrder(OrderRequest orderRequst) {
+    public String placeOrder(OrderRequest orderRequst) {
         Order order = new Order();
         order.setOrderNumber(UUID.randomUUID().toString());
 
@@ -52,6 +52,8 @@ public class OrderService {
         }
 
         orderRepository.save(order);
+
+        return "Order Placed";
     }
 
     public List<OrderResponse> getAllOrders() {
