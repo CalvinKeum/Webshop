@@ -5,7 +5,10 @@ import com.calvinkeum.orderservice.dto.*;
 import com.calvinkeum.orderservice.model.Order;
 import com.calvinkeum.orderservice.model.OrderLineItem;
 import com.calvinkeum.orderservice.repository.OrderRepository;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -22,6 +25,9 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final WebClient.Builder webClientBuilder;
+    private final ObservationRegistry observationRegistry;
+    private final ApplicationEventPublisher applicationEventPublisher;
+
     public String placeOrder(OrderRequest orderRequst) {
         Order order = new Order();
         order.setOrderNumber(UUID.randomUUID().toString());
@@ -36,24 +42,52 @@ public class OrderService {
 
         // Call inventory service and place order if order is in stock
         //TODO: This does not take into account if the order quantity exceeds the inventory quantity
-        InventoryResponse[] inventoryResponses = webClientBuilder.build().get()
+        /*
+            //original code
+            InventoryResponse[] inventoryResponses = webClientBuilder.build().get()
                 .uri("http://inventory-service/api/inventory",
                         uriBuilder -> uriBuilder.queryParam("sku", skus).build())
                 .retrieve()
                 .bodyToMono(InventoryResponse[].class)
                 .block();
 
-        boolean allProductsInStock = Arrays.stream(inventoryResponses)
-                .allMatch(InventoryResponse::isInStock);
+            boolean allProductsInStock = Arrays.stream(inventoryResponses)
+                    .allMatch(InventoryResponse::isInStock);
 
-        if (!allProductsInStock) {
-            System.out.println("should error");
-            //throw new IllegalAccessException("Product is not in stock");
-        }
+            if (!allProductsInStock) {
+                System.out.println("should error");
+                //throw new IllegalAccessException("Product is not in stock");
+            }
 
-        orderRepository.save(order);
+            orderRepository.save(order);
 
-        return "Order Placed";
+            return "Order Placed";
+         */
+
+        Observation inventoryServiceObservation = Observation.createNotStarted("inventory-service-lookup",
+                this.observationRegistry);
+        inventoryServiceObservation.lowCardinalityKeyValue("call", "inventory-service");
+
+        return inventoryServiceObservation.observe(() -> {
+            InventoryResponse[] inventoryResponseArray = webClientBuilder.build().get()
+                    .uri("http://inventory-service/api/inventory",
+                            uriBuilder -> uriBuilder.queryParam("sku", skus).build())
+                    .retrieve()
+                    .bodyToMono(InventoryResponse[].class)
+                    .block();
+
+            boolean allProductsInStock = Arrays.stream(inventoryResponseArray)
+                    .allMatch(InventoryResponse::isInStock);
+
+            if (allProductsInStock) {
+                orderRepository.save(order);
+                // publish Order Placed Event
+                //applicationEventPublisher.publishEvent(new OrderPlacedEvent(this, order.getOrderNumber()));
+                return "Order Placed";
+            } else {
+                throw new IllegalArgumentException("Product is not in stock, please try again later");
+            }
+        });
     }
 
     public List<OrderResponse> getAllOrders() {
